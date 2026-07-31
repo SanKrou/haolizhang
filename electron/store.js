@@ -105,7 +105,130 @@ function listTransactions(db, { page = 1, pageSize = 100, month } = {}) {
   return { items, total };
 }
 
+// ---- 统计查询（Task 5） ----
+
+function getStatistics(db, { period, date }) {
+  if (period === 'day') {
+    return dayStats(db, date);
+  }
+  if (period === 'month') {
+    return monthStats(db, date);
+  }
+  return yearStats(db, date);
+}
+
+function dayStats(db, date) {
+  const row = db.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=1 THEN amount END), 0) AS exemptExpense
+     FROM transactions WHERE date = ?`
+  ).get(date);
+  const byCategory = db.prepare(
+    `SELECT c.name, SUM(t.amount) AS amount
+     FROM transactions t JOIN categories c ON c.id = t.category_id
+     WHERE t.date = ? AND t.type='expense' AND t.exempt=0
+     GROUP BY c.id ORDER BY amount DESC`
+  ).all(date);
+  const trend = monthTrend(db, date.slice(0, 7), date);
+  return finalize(row, byCategory, trend);
+}
+
+function monthStats(db, date) {
+  const month = date.slice(0, 7);
+  const row = db.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=1 THEN amount END), 0) AS exemptExpense
+     FROM transactions WHERE strftime('%Y-%m', date) = ?`
+  ).get(month);
+  const byCategory = db.prepare(
+    `SELECT c.name, SUM(t.amount) AS amount
+     FROM transactions t JOIN categories c ON c.id = t.category_id
+     WHERE strftime('%Y-%m', t.date) = ? AND t.type='expense' AND t.exempt=0
+     GROUP BY c.id ORDER BY amount DESC`
+  ).all(month);
+  const trend = yearTrend(db, month.slice(0, 4), date);
+  return finalize(row, byCategory, trend);
+}
+
+function yearStats(db, date) {
+  const year = date.slice(0, 4);
+  const row = db.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' THEN amount END), 0) AS expense,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=1 THEN amount END), 0) AS exemptExpense
+     FROM transactions WHERE strftime('%Y', date) = ?`
+  ).get(year);
+  const byCategory = db.prepare(
+    `SELECT c.name, SUM(t.amount) AS amount
+     FROM transactions t JOIN categories c ON c.id = t.category_id
+     WHERE strftime('%Y', t.date) = ? AND t.type='expense'
+     GROUP BY c.id ORDER BY amount DESC`
+  ).all(year);
+  const trend = lastYearsTrend(db, date);
+  return finalize(row, byCategory, trend);
+}
+
+function finalize(row, byCategory, trend) {
+  return {
+    income: row.income,
+    expense: row.expense,
+    exemptExpense: row.exemptExpense,
+    balance: row.income - (row.expense + row.exemptExpense),
+    byCategory,
+    trend,
+  };
+}
+
+function monthTrend(db, month, upToDate) {
+  return db.prepare(
+    `SELECT date AS label,
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense
+     FROM transactions
+     WHERE strftime('%Y-%m', date) = ? AND date <= ?
+     GROUP BY date ORDER BY date`
+  ).all(month, upToDate);
+}
+
+function yearTrend(db, year, upToDate) {
+  return db.prepare(
+    `SELECT strftime('%Y-%m', date) AS label,
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense
+     FROM transactions
+     WHERE strftime('%Y', date) = ? AND date <= ?
+     GROUP BY strftime('%Y-%m', date) ORDER BY label`
+  ).all(year, upToDate);
+}
+
+function lastYearsTrend(db, upToDate) {
+  const startYear = String(Number(upToDate.slice(0, 4)) - 4);
+  return db.prepare(
+    `SELECT strftime('%Y', date) AS label,
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' THEN amount END), 0) AS expense
+     FROM transactions
+     WHERE strftime('%Y', date) >= ? AND date <= ?
+     GROUP BY strftime('%Y', date) ORDER BY label`
+  ).all(startYear, upToDate);
+}
+
+function getExemptTransactions(db, month) {
+  return db.prepare(
+    `SELECT id, type, amount, date, category_id, note, exempt_note
+     FROM transactions
+     WHERE strftime('%Y-%m', date) = ? AND exempt = 1
+     ORDER BY date DESC`
+  ).all(month);
+}
+
 module.exports = { createCategory, listCategories, updateCategory, deleteCategory,
                    createTag, listTags, deleteTag,
                    createTransaction, updateTransaction, deleteTransaction,
-                   listTransactions, getTransaction };
+                   listTransactions, getTransaction,
+                   getStatistics, getExemptTransactions };
