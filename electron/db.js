@@ -103,39 +103,42 @@ async function openDb(dbPath) {
       ? params[0]
       : params;
 
-  // 每次 prepare 新建 sql.js Statement，用完 free
+  // 兼容 better-sqlite3：prepare 返回的 statement 对象可反复调用。
+  // 每次 all/get/run 调用时惰性重新 raw.prepare(sql)，用完 free——
+  // 避免 sql.js Statement 释放（free）后无法再次使用（会抛 "Statement closed"）。
   const makeStatement = (sql) => {
-    const stmt = raw.prepare(sql);
+    const use = (fn) => {
+      const stmt = raw.prepare(sql);
+      try {
+        return fn(stmt);
+      } finally {
+        stmt.free();
+      }
+    };
     return {
       all(...params) {
-        try {
+        return use((stmt) => {
           stmt.bind(toBindArgs(params));
           const rows = [];
           while (stmt.step()) rows.push(stmt.getAsObject());
           return rows;
-        } finally {
-          stmt.free();
-        }
+        });
       },
       get(...params) {
-        try {
+        return use((stmt) => {
           stmt.bind(toBindArgs(params));
           return stmt.step() ? stmt.getAsObject() : undefined;
-        } finally {
-          stmt.free();
-        }
+        });
       },
       run(...params) {
-        try {
+        return use((stmt) => {
           stmt.bind(toBindArgs(params));
           stmt.step();
           const changes = raw.getRowsModified();
           const result = { changes, lastInsertRowid: readLastInsertRowid() };
           persist(false); // 每次写后落盘
           return result;
-        } finally {
-          stmt.free();
-        }
+        });
       },
     };
   };
