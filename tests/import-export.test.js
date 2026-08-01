@@ -59,6 +59,21 @@ test('exportCsv 输出 BOM 且含豁免列', async () => {
   db.close();
 });
 
+test('exportCsv 对含逗号/引号/换行的备注做 RFC 4180 转义', async () => {
+  const db = await openDb(path.join(tempDir(), 't.db'));
+  const dir = tempDir();
+  const csv = path.join(dir, 'out.csv');
+  createTransaction(db, { type: 'expense', amount: 12345, date: '2026-07-05',
+    categoryId: null, note: '备注,含"引号"\r\n换行', exempt: 0, exemptNote: '', tagIds: [] });
+  exportCsv(db, csv);
+  const text = fs.readFileSync(csv, 'utf8');
+  // BOM 保留、CRLF 行分隔、备注字段被双引号包裹且内部引号翻倍、内嵌换行不拆行
+  assert.strictEqual(text,
+    '\uFEFF日期,类型,金额,分类,标签,备注,豁免,豁免原因\r\n'
+    + '2026-07-05,支出,123.45,,,"备注,含""引号""\r\n换行",否,');
+  db.close();
+});
+
 test('exportSummary 输出月度汇总文本', async () => {
   const db = await openDb(path.join(tempDir(), 't.db'));
   const cat = createCategory(db, { name: '餐饮', type: 'expense' });

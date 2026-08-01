@@ -1,7 +1,7 @@
 window.renderers = window.renderers || {};
 
 window.renderers.budget = async function (root) {
-  let month = new Date().toISOString().slice(0, 7);
+  let month = window.localDateStr().slice(0, 7);
 
   async function render() {
     const [catsR, budR, sumR] = await Promise.all([
@@ -9,7 +9,7 @@ window.renderers.budget = async function (root) {
       window.ledger.getBudgets(month),
       window.ledger.getBudgetSummary(month),
     ]);
-    if (!budR.ok) { root.innerHTML = `<div class="card">加载失败：${budR.error}</div>`; return; }
+    if (!budR.ok) { root.innerHTML = `<div class="card">加载失败：${window.escapeHtml(budR.error)}</div>`; return; }
     const cats = catsR.ok ? catsR.data : [];
     const budgets = budR.data;
     const sum = sumR.ok ? sumR.data : null;
@@ -30,7 +30,7 @@ window.renderers.budget = async function (root) {
     root.innerHTML = `
       <div class="card">
         <h2>预算</h2>
-        <input type="month" id="b-month" value="${month}" />
+        <input type="month" id="b-month" value="${window.escapeHtml(month)}" />
         <h3 style="margin-top:16px">总额预算</h3>
         ${total ? bar(total) : '<p style="color:var(--text-muted)">未设置</p>'}
         <input id="b-total" type="number" step="0.01" placeholder="每月总支出预算（元）"
@@ -40,7 +40,7 @@ window.renderers.budget = async function (root) {
         ${cats.map(c => {
           const b = budgets.find(x => x.categoryId === c.id);
           return `<div style="margin-bottom:10px">
-            <span>${c.name}</span> ${b ? bar(b) : ''}
+            <span>${window.escapeHtml(c.name)}</span> ${b ? bar(b) : ''}
             <input class="b-cat" data-cat="${c.id}" type="number" step="0.01"
               placeholder="分类预算（元）" value="${b ? (b.amount / 100).toFixed(2) : ''}" />
           </div>`;

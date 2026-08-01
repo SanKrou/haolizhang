@@ -27,12 +27,12 @@ window.renderers.add = async function (root) {
   const catSel = root.querySelector('#f-category');
   const tagBox = root.querySelector('#f-tags');
   const errBox = root.querySelector('#f-errors');
-  root.querySelector('#f-date').value = new Date().toISOString().slice(0, 10);
+  root.querySelector('#f-date').value = window.localDateStr();
 
   async function loadCats() {
     const r = await window.ledger.listCategories(type);
     catSel.innerHTML = '<option value="">（未分类）</option>' +
-      (r.ok ? r.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('') : '');
+      (r.ok ? r.data.map(c => `<option value="${c.id}">${window.escapeHtml(c.name)}</option>`).join('') : '');
   }
   const toggleType = (t) => {
     type = t;
@@ -48,7 +48,7 @@ window.renderers.add = async function (root) {
     const r = await window.ledger.listTags();
     if (!r.ok) return;
     tagBox.innerHTML = r.data.map(t =>
-      `<button type="button" class="badge" data-tag="${t.id}">${t.name}</button>`).join('');
+      `<button type="button" class="badge" data-tag="${t.id}">${window.escapeHtml(t.name)}</button>`).join('');
     tagBox.querySelectorAll('[data-tag]').forEach(b => {
       b.onclick = () => {
         const id = Number(b.dataset.tag);

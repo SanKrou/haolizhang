@@ -1,20 +1,20 @@
 window.renderers = window.renderers || {};
 
 window.renderers.ledger = async function (root) {
-  let month = new Date().toISOString().slice(0, 7);
+  let month = window.localDateStr().slice(0, 7);
   let page = 1;
   const pageSize = 100;
 
   async function render() {
     const r = await window.ledger.listTransactions({ page, pageSize, month });
-    if (!r.ok) { root.innerHTML = `<div class="card">加载失败：${r.error}</div>`; return; }
+    if (!r.ok) { root.innerHTML = `<div class="card">加载失败：${window.escapeHtml(r.error)}</div>`; return; }
     const { items, total } = r.data;
     const rows = items.map(t => `
       <tr data-id="${t.id}">
-        <td>${t.date}</td>
+        <td>${window.escapeHtml(t.date)}</td>
         <td>${t.type === 'income' ? '收入' : '支出'}${t.exempt ? ' <span class="badge">豁免</span>' : ''}</td>
         <td>${(t.amount / 100).toFixed(2)} 元</td>
-        <td>${t.note || ''}</td>
+        <td>${window.escapeHtml(t.note)}</td>
         <td>
           <button class="btn ghost edit-btn">编辑</button>
           <button class="btn danger del-btn">删除</button>
@@ -23,7 +23,7 @@ window.renderers.ledger = async function (root) {
     root.innerHTML = `
       <div class="card">
         <h2>账本</h2>
-        <input type="month" id="g-month" value="${month}" />
+        <input type="month" id="g-month" value="${window.escapeHtml(month)}" />
         <table style="width:100%;border-collapse:collapse;margin-top:12px">
           <thead><tr><th>日期</th><th>类型</th><th>金额</th><th>备注</th><th>操作</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="5">本月暂无记录</td></tr>'}</tbody>
@@ -55,23 +55,26 @@ window.renderers.ledger = async function (root) {
     const t = r.data;
     const cats = await window.ledger.listCategories(t.type);
     tr.innerHTML = `
-      <td><input type="date" value="${t.date}" class="e-date" /></td>
+      <td><input type="date" value="${window.escapeHtml(t.date)}" class="e-date" /></td>
       <td><select class="e-type">
         <option value="expense" ${t.type === 'expense' ? 'selected' : ''}>支出</option>
         <option value="income" ${t.type === 'income' ? 'selected' : ''}>收入</option>
       </select></td>
       <td><input type="number" step="0.01" value="${(t.amount / 100).toFixed(2)}" class="e-amount" /></td>
-      <td><input value="${t.note}" class="e-note" /></td>
+      <td><input value="${window.escapeHtml(t.note)}" class="e-note" /></td>
       <td><button class="btn e-save">保存</button> <button class="btn ghost e-cancel">取消</button></td>`;
     tr.querySelector('.e-save').onclick = async () => {
-      await window.ledger.updateTransaction(id, {
+      const amt = Math.round(parseFloat(tr.querySelector('.e-amount').value) * 100);
+      if (!amt || amt <= 0) { alert('请输入有效金额'); return; }
+      const r = await window.ledger.updateTransaction(id, {
         type: tr.querySelector('.e-type').value,
-        amount: Math.round(parseFloat(tr.querySelector('.e-amount').value) * 100),
+        amount: amt,
         date: tr.querySelector('.e-date').value,
         categoryId: t.category_id,
         note: tr.querySelector('.e-note').value,
         exempt: t.exempt, exemptNote: t.exempt_note, tagIds: t.tags.map(x => x.id),
       });
+      if (!r.ok) { alert(r.error); return; }
       render();
     };
     tr.querySelector('.e-cancel').onclick = render;

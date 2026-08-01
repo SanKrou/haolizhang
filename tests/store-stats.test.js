@@ -31,13 +31,38 @@ test('月度统计：常规支出不含豁免，结余含豁免', async () => {
   db.close();
 });
 
-test('年度统计：总支出含豁免', async () => {
+test('年度统计：总支出含豁免，豁免单独统计', async () => {
   const db = await tempDb();
   const cat = createCategory(db, { name: '数码', type: 'expense' });
   createTransaction(db, { type: 'expense', amount: 10000, date: '2026-03-01',
     categoryId: cat, note: '', exempt: 1, exemptNote: '', tagIds: [] });
   const s = getStatistics(db, { period: 'year', date: '2026-07-15' });
-  assert.strictEqual(s.expense, 10000); // 年度支出含豁免
+  assert.strictEqual(s.expense, 10000);           // 年度总支出含豁免
+  assert.strictEqual(s.exemptExpense, 10000);     // 豁免单独统计
+  assert.strictEqual(s.balance, -10000);          // 结余 = 收入 - 总支出（只扣一次）
+  assert.strictEqual(s.byCategory.length, 1);     // 年度饼图含豁免
+  assert.strictEqual(s.byCategory[0].amount, 10000);
+  db.close();
+});
+
+test('年度统计：结余只扣减一次豁免（总支出含豁免）', async () => {
+  const db = await tempDb();
+  const cat = createCategory(db, { name: '数码', type: 'expense' });
+  createTransaction(db, { type: 'income', amount: 100000, date: '2026-03-01',
+    categoryId: null, note: '', exempt: 0, exemptNote: '', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 30000, date: '2026-03-02',
+    categoryId: cat, note: '', exempt: 0, exemptNote: '', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 50000, date: '2026-03-03',
+    categoryId: cat, note: '买电脑', exempt: 1, exemptNote: '大额', tagIds: [] });
+  const s = getStatistics(db, { period: 'year', date: '2026-07-15' });
+  assert.strictEqual(s.income, 100000);
+  assert.strictEqual(s.expense, 80000);           // 年度总支出含豁免（30000 + 50000）
+  assert.strictEqual(s.exemptExpense, 50000);     // 豁免单独统计
+  assert.strictEqual(s.balance, 100000 - 80000);  // 结余 = 收入 - 总支出（只扣一次）
+  assert.strictEqual(s.byCategory.length, 1);
+  assert.strictEqual(s.byCategory[0].amount, 80000); // 年度饼图含豁免
+  const y2026 = s.trend.find(t => t.label === '2026');
+  assert.strictEqual(y2026.expense, 80000);       // 年度趋势含豁免
   db.close();
 });
 

@@ -11,7 +11,7 @@ window.renderers.manage = async function (root) {
       <div id="m-${type}">
         ${cats.filter(c => c.type === type).map(c => `
           <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
-            <input class="m-cat-name" data-id="${c.id}" value="${c.name}" />
+            <input class="m-cat-name" data-id="${c.id}" value="${window.escapeHtml(c.name)}" />
             <button class="btn ghost m-cat-save" data-id="${c.id}">改名</button>
             <button class="btn danger m-cat-del" data-id="${c.id}">删除</button>
           </div>`).join('')}
@@ -28,7 +28,7 @@ window.renderers.manage = async function (root) {
         <h3 style="margin-top:20px">标签</h3>
         <div id="m-tags">
           ${tags.map(t => `
-            <span class="badge" style="margin:4px">${t.name}
+            <span class="badge" style="margin:4px">${window.escapeHtml(t.name)}
               <button class="m-tag-del" data-id="${t.id}" style="border:none;background:none;cursor:pointer;color:inherit">×</button>
             </span>`).join('')}
         </div>

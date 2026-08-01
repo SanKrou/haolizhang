@@ -170,15 +170,20 @@ function yearStats(db, date) {
      GROUP BY c.id ORDER BY amount DESC`
   ).all(year);
   const trend = lastYearsTrend(db, date);
-  return finalize(row, byCategory, trend);
+  // 年度总支出含豁免：balance = income - expense（expense 已含豁免）
+  return finalize(row, byCategory, trend, true);
 }
 
-function finalize(row, byCategory, trend) {
+function finalize(row, byCategory, trend, expenseIncludesExempt = false) {
   return {
     income: row.income,
     expense: row.expense,
     exemptExpense: row.exemptExpense,
-    balance: row.income - (row.expense + row.exemptExpense),
+    // expenseIncludesExempt 为 true（年度口径）时 expense 已含豁免，只扣一次；
+    // 为 false（日/月口径）时 expense 不含豁免，需再加 exemptExpense。
+    balance: expenseIncludesExempt
+      ? row.income - row.expense
+      : row.income - (row.expense + row.exemptExpense),
     byCategory,
     trend,
   };

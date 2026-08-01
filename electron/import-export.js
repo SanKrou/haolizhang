@@ -97,6 +97,12 @@ function importRows(db, rows, { createMissingCategories }) {
   }
 }
 
+// RFC 4180 转义：字段含逗号/引号/回车/换行时用双引号包裹，内部引号翻倍
+function csvEscape(v) {
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
 function exportCsv(db, csvPath) {
   const rows = db.prepare(
     `SELECT t.date, t.type, t.amount, c.name AS category, t.note, t.exempt, t.exempt_note,
@@ -106,11 +112,12 @@ function exportCsv(db, csvPath) {
      ORDER BY t.date DESC, t.id DESC`
   ).all();
   const header = ['日期', '类型', '金额', '分类', '标签', '备注', '豁免', '豁免原因'];
-  const lines = [header.join(',')];
+  const lines = [header.map(csvEscape).join(',')];
   for (const r of rows) {
     const type = r.type === 'income' ? '收入' : '支出';
     lines.push([r.date, type, (r.amount / 100).toFixed(2), r.category ?? '',
-      r.tags, r.note, r.exempt ? '是' : '否', r.exempt_note ?? ''].join(','));
+      r.tags, r.note, r.exempt ? '是' : '否', r.exempt_note ?? '']
+      .map(csvEscape).join(','));
   }
   fs.writeFileSync(csvPath, '\uFEFF' + lines.join('\r\n'), 'utf8');
 }

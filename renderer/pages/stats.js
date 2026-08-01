@@ -7,7 +7,7 @@ let statsCharts = [];
 
 window.renderers.stats = async function (root) {
   let period = 'month';
-  const today = new Date().toISOString().slice(0, 10);
+  const today = window.localDateStr();
 
   async function render() {
     // 先释放上一轮实例再重建 DOM/init，避免 ECharts 全局实例表持引用导致内存泄漏；
@@ -16,7 +16,7 @@ window.renderers.stats = async function (root) {
     statsCharts = [];
 
     const r = await window.ledger.getStatistics({ period, date: today });
-    if (!r.ok) { root.innerHTML = `<div class="card">加载失败：${r.error}</div>`; return; }
+    if (!r.ok) { root.innerHTML = `<div class="card">加载失败：${window.escapeHtml(r.error)}</div>`; return; }
     const s = r.data;
     const fmt = (v) => (v / 100).toFixed(2) + ' 元';
     let exemptSection = '';
@@ -24,7 +24,7 @@ window.renderers.stats = async function (root) {
       const ex = await window.ledger.getExemptTransactions(today.slice(0, 7));
       exemptSection = `<div class="card"><h3>重大支出（豁免，不计入当月常规支出）</h3>
         ${ex.ok && ex.data.length ? ex.data.map(e =>
-          `<p>${e.date} ${fmt(e.amount)} — ${e.exempt_note} ${e.note}</p>`).join('')
+          `<p>${window.escapeHtml(e.date)} ${fmt(e.amount)} — ${window.escapeHtml(e.exempt_note)} ${window.escapeHtml(e.note)}</p>`).join('')
           : '<p>本月无豁免支出</p>'}</div>`;
     }
     root.innerHTML = `
