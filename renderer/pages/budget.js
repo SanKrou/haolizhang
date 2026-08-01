@@ -58,6 +58,7 @@ window.renderers.budget = async function (root) {
     root.querySelector('#b-save-cats').onclick = async () => {
       for (const inp of root.querySelectorAll('.b-cat')) {
         const v = parseFloat(inp.value);
+        if (!v || v <= 0) continue;
         await window.ledger.setBudget({
           categoryId: Number(inp.dataset.cat), month,
           amount: Math.round(v * 100),
