@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>记账应用</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="brand">💰 记账</div>
+    <button class="nav-btn active" data-view="add">记一笔</button>
+    <button class="nav-btn" data-view="ledger">账本</button>
+    <button class="nav-btn" data-view="stats">统计</button>
+    <button class="nav-btn" data-view="budget">预算</button>
+    <button class="nav-btn" data-view="io">导入导出</button>
+    <button class="nav-btn" data-view="manage">管理</button>
+    <div id="balance-card">
+      <div class="label">本月结余</div>
+      <div class="value" id="balance-value">--</div>
+    </div>
+  </aside>
+  <main id="view-root"></main>
+  <script src="../node_modules/echarts/dist/echarts.min.js"></script>
+  <script src="pages/add.js"></script>
+  <script src="pages/ledger.js"></script>
+  <script src="pages/stats.js"></script>
+  <script src="pages/budget.js"></script>
+  <script src="pages/io.js"></script>
+  <script src="pages/manage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
