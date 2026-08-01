@@ -151,9 +151,10 @@ function exportSummary(db, summaryPath, { month }) {
   const trend = db.prepare(
     `SELECT strftime('%Y-%m', date) AS label,
        SUM(CASE WHEN type='income' THEN amount ELSE -amount END) AS net
-     FROM transactions WHERE date >= date(?, '-11 months') AND date <= ?
+     FROM transactions
+     WHERE date >= date(?, '-11 months') AND date <= date(?, '+1 month', '-1 day')
      GROUP BY strftime('%Y-%m', date) ORDER BY label`
-  ).all(month + '-01', month + '-28');
+  ).all(month + '-01', month + '-01');
   for (const t of trend) {
     L.push(`- ${t.label}：净 ${(t.net / 100).toFixed(2)} 元`);
   }
