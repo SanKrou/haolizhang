@@ -1,10 +1,20 @@
 window.renderers = window.renderers || {};
 
+// 模块级持有本视图创建的 ECharts 实例：切换 period 会重建 DOM，切出视图时 app.js renderView
+// 会 root.innerHTML='' 清空旧 DOM，但旧实例仍被 ECharts 全局实例表持有无法 GC；
+// 保存引用供 render 开头统一 dispose，同时覆盖「切 period」与「重进视图」两种累积场景。
+let statsCharts = [];
+
 window.renderers.stats = async function (root) {
   let period = 'month';
   const today = new Date().toISOString().slice(0, 10);
 
   async function render() {
+    // 先释放上一轮实例再重建 DOM/init，避免 ECharts 全局实例表持引用导致内存泄漏；
+    // dispose 后立刻清空数组，不会对同一实例重复 dispose
+    for (const inst of statsCharts) { try { inst.dispose(); } catch (e) {} }
+    statsCharts = [];
+
     const r = await window.ledger.getStatistics({ period, date: today });
     if (!r.ok) { root.innerHTML = `<div class="card">加载失败：${r.error}</div>`; return; }
     const s = r.data;
@@ -35,10 +45,10 @@ window.renderers.stats = async function (root) {
     root.querySelectorAll('[data-p]').forEach(b =>
       b.onclick = () => { period = b.dataset.p; render(); });
 
-    const charts = [];
-    charts.push(echarts.init(root.querySelector('#pie')));
-    charts.push(echarts.init(root.querySelector('#line')));
-    charts[0].setOption({
+    const pie = echarts.init(root.querySelector('#pie'));
+    const line = echarts.init(root.querySelector('#line'));
+    statsCharts.push(pie, line);
+    pie.setOption({
       tooltip: { trigger: 'item' },
       series: [{
         type: 'pie', radius: ['40%', '70%'],
@@ -46,7 +56,7 @@ window.renderers.stats = async function (root) {
         label: { formatter: '{b}: {d}%' },
       }],
     });
-    charts[1].setOption({
+    line.setOption({
       tooltip: { trigger: 'axis' },
       legend: { data: ['收入', '支出'] },
       xAxis: { type: 'category', data: s.trend.map(t => t.label) },
