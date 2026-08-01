@@ -28,7 +28,7 @@ window.renderers.io = async function (root) {
     res.innerHTML = `<p>成功导入 ${r.data.imported} 行，失败 ${r.data.failed} 行</p>` +
       (r.data.errors.length
         ? `<ul style="font-size:12px;color:var(--danger)">${r.data.errors.map(e =>
-            `<li>第 ${e.row} 行：${e.message}</li>`).join('')}</ul>` : '');
+            `<li>第 ${e.row} 行：${e.message ?? '数据格式错误'}</li>`).join('')}</ul>` : '');
     document.getElementById('balance-value').textContent = '--';
   };
 
