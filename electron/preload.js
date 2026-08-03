@@ -28,3 +28,16 @@ contextBridge.exposeInMainWorld('ledger', {
   exportCsv: api('file:exportCsv'),
   exportSummary: api('file:exportSummary'),
 });
+
+// 窗口控制（无边框自绘标题栏）
+contextBridge.exposeInMainWorld('winctl', {
+  minimize: () => ipcRenderer.invoke('win:minimize'),
+  maximize: () => ipcRenderer.invoke('win:maximize'),
+  close: () => ipcRenderer.invoke('win:close'),
+});
+
+// 剪贴板（右键菜单粘贴用）
+const { clipboard } = require('electron');
+contextBridge.exposeInMainWorld('clip', {
+  readText: () => clipboard.readText(),
+});
