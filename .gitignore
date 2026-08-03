@@ -1,2 +1,4 @@
 *.xlsx
 node_modules/
+dist/
+.reasonix/
