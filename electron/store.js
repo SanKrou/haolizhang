@@ -93,13 +93,26 @@ function getTransaction(db, id) {
   return tx;
 }
 
-function listTransactions(db, { page = 1, pageSize = 100, month } = {}) {
-  const where = month ? 'WHERE strftime(\'%Y-%m\', date) = ?' : '';
-  const params = month ? [month] : [];
+function listTransactions(db, { page = 1, pageSize = 100, month, type, exempt, sort } = {}) {
+  const conds = [];
+  const params = [];
+  if (month) { conds.push("strftime('%Y-%m', date) = ?"); params.push(month); }
+  if (type === 'income' || type === 'expense') { conds.push('type = ?'); params.push(type); }
+  if (exempt === 0 || exempt === 1) { conds.push('exempt = ?'); params.push(exempt); }
+  const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+  const orderMap = {
+    'date-desc': 'date DESC, id DESC',
+    'date-asc': 'date ASC, id ASC',
+    'amount-desc': 'amount DESC, id DESC',
+    'amount-asc': 'amount ASC, id ASC',
+    'category': 'COALESCE(c.name, \'\') ASC, date DESC',
+  };
+  const orderBy = orderMap[sort] || 'date DESC, id DESC';
+  const join = sort === 'category' ? ' LEFT JOIN categories c ON c.id = transactions.category_id' : '';
   const total = db.prepare(`SELECT COUNT(*) AS n FROM transactions ${where}`).get(...params).n;
   const items = db.prepare(
-    `SELECT *, ${TAG_SELECT} AS tags FROM transactions ${where}
-     ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`
+    `SELECT transactions.*, ${TAG_SELECT} AS tags FROM transactions ${join} ${where}
+     ORDER BY ${orderBy} LIMIT ? OFFSET ?`
   ).all(...params, pageSize, (page - 1) * pageSize);
   for (const item of items) item.tags = JSON.parse(item.tags);
   return { items, total };
@@ -107,14 +120,42 @@ function listTransactions(db, { page = 1, pageSize = 100, month } = {}) {
 
 // ---- 统计查询（Task 5） ----
 
-function getStatistics(db, { period, date }) {
+function getStatistics(db, { period, date, dateStart, dateEnd }) {
   if (period === 'day') {
     return dayStats(db, date);
   }
   if (period === 'month') {
     return monthStats(db, date);
   }
+  if (period === 'range') {
+    return rangeStats(db, dateStart, dateEnd);
+  }
   return yearStats(db, date);
+}
+
+function rangeStats(db, dateStart, dateEnd) {
+  const row = db.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=1 THEN amount END), 0) AS exemptExpense
+     FROM transactions WHERE date >= ? AND date <= ?`
+  ).get(dateStart, dateEnd);
+  const byCategory = db.prepare(
+    `SELECT c.name, SUM(t.amount) AS amount
+     FROM transactions t JOIN categories c ON c.id = t.category_id
+     WHERE t.date >= ? AND t.date <= ? AND t.type='expense' AND t.exempt=0
+     GROUP BY c.id ORDER BY amount DESC`
+  ).all(dateStart, dateEnd);
+  const trend = db.prepare(
+    `SELECT date AS label,
+       COALESCE(SUM(CASE WHEN type='income' THEN amount END), 0) AS income,
+       COALESCE(SUM(CASE WHEN type='expense' AND exempt=0 THEN amount END), 0) AS expense
+     FROM transactions
+     WHERE date >= ? AND date <= ?
+     GROUP BY date ORDER BY date`
+  ).all(dateStart, dateEnd);
+  return finalize(row, byCategory, trend);
 }
 
 function dayStats(db, date) {

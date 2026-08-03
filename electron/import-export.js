@@ -30,8 +30,11 @@ function parseExcelRows(filePath) {
     const amountRaw = String(row[idx.amount]).trim();
     const amount = Math.round(Math.abs(Number(amountRaw)) * 100);
     const typeRaw = String(row[idx.type] ?? '').trim();
-    const type = (typeRaw === '收入' || typeRaw === 'income' || Number(amountRaw) > 0)
-      ? 'income' : 'expense';
+    // 类型列优先；列缺失/未知时才用金额正负推断（正=收入、负=支出）
+    let type;
+    if (typeRaw === '收入' || typeRaw === 'income') type = 'income';
+    else if (typeRaw === '支出' || typeRaw === 'expense') type = 'expense';
+    else type = Number(amountRaw) > 0 ? 'income' : 'expense';
     const exemptRaw = String(row[idx.exempt] ?? '').trim();
     return {
       type,

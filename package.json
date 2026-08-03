@@ -1,6 +1,6 @@
 {
   "name": "haolizhang",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "毫厘账 — Windows 桌面记账应用",
   "main": "electron/main.js",
   "scripts": {

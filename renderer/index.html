@@ -33,12 +33,30 @@
       <button class="nav-btn active" data-view="add">记一笔</button>
       <button class="nav-btn" data-view="ledger">账本</button>
       <button class="nav-btn" data-view="stats">统计</button>
-      <div id="balance-card">
-        <div class="label">本月结余</div>
-        <div class="value" id="balance-value">--</div>
-      </div>
     </aside>
     <main id="view-root"></main>
+  </div>
+  <div id="balance-dock">
+    <div class="bb-left">
+      <div class="bb-range" id="bd-range"></div>
+      <div id="bd-body"></div>
+    </div>
+    <div class="bb-poem" id="bb-poem" title="点击换一句">
+      <span class="poem-line" id="poem-line"></span><span class="poem-src" id="poem-src"></span>
+    </div>
+    <div class="bb-sep"></div>
+    <div class="bb-cal">
+      <div class="cal-head">
+        <input type="number" id="inp-year" class="y" min="1900" max="2100" />
+        <span class="unit">年</span>
+        <input type="number" id="inp-month" min="1" max="12" />
+        <span class="unit">月</span>
+        <button type="button" class="cal-nav" id="cal-prev">◀</button>
+        <button type="button" class="cal-nav" id="cal-next">▶</button>
+      </div>
+      <div class="cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
   </div>
   <script src="../node_modules/echarts/dist/echarts.min.js"></script>
   <script src="pages/add.js"></script>

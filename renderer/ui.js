@@ -112,21 +112,22 @@
   window.addEventListener('scroll', closePanel, true);
 
   /* ── 原生日期/月份/下拉 → 水墨自绘组件 ── */
-  const CAL = { panel: null, input: null };
-  function closePanel() { if (CAL.panel) { CAL.panel.remove(); CAL.panel = null; CAL.input = null; } }
-  function openPanel(input, html, bind) {
+  const CAL = { panel: null, input: null, rectEl: null };
+  function closePanel() { if (CAL.panel) { CAL.panel.remove(); CAL.panel = null; CAL.input = null; CAL.rectEl = null; } }
+  function openPanel(input, html, bind, rectEl) {
     closePanel();
     const panel = document.createElement('div');
     panel.className = 'ink-panel';
     panel.innerHTML = html;
     document.body.appendChild(panel);
-    CAL.panel = panel; CAL.input = input;
+    CAL.panel = panel; CAL.input = input; CAL.rectEl = rectEl || input;
     positionPanel();
     if (bind) bind(panel);
   }
   function positionPanel() {
-    if (!CAL.panel || !CAL.input) return;
-    const rect = CAL.input.getBoundingClientRect();
+    if (!CAL.panel || !CAL.rectEl) return;
+    const rect = CAL.rectEl.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) return; // 不可见元素不定位
     let left = rect.left, top = rect.bottom + 6;
     if (left + CAL.panel.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - CAL.panel.offsetWidth - 8);
     if (top + CAL.panel.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - CAL.panel.offsetHeight - 6);
@@ -270,7 +271,7 @@
             select.dispatchEvent(new Event('change', { bubbles: true }));
             closePanel();
           }));
-        });
+        }, box); // 用可见按钮定位，避免隐藏 select 的零矩形
     });
   }
 

@@ -51,3 +51,31 @@ test('listTransactions 分页与月度过滤', async () => {
   assert.strictEqual(july.total, 5);
   db.close();
 });
+
+test('listTransactions 类型/豁免过滤与排序', async () => {
+  const db = await tempDb();
+  const cat = createCategory(db, { name: '餐饮', type: 'expense' });
+  createTransaction(db, { type: 'expense', amount: 500, date: '2026-07-01',
+    categoryId: cat, note: 'a', exempt: 0, exemptNote: '', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 9000, date: '2026-07-02',
+    categoryId: cat, note: 'b', exempt: 1, exemptNote: '大额', tagIds: [] });
+  createTransaction(db, { type: 'income', amount: 100000, date: '2026-07-03',
+    categoryId: null, note: 'c', exempt: 0, exemptNote: '', tagIds: [] });
+  const onlyExpense = listTransactions(db, { page: 1, pageSize: 100, type: 'expense' });
+  assert.strictEqual(onlyExpense.total, 2);
+  const onlyExempt = listTransactions(db, { page: 1, pageSize: 100, exempt: 1 });
+  assert.strictEqual(onlyExempt.total, 1);
+  assert.strictEqual(onlyExempt.items[0].note, 'b');
+  const noExempt = listTransactions(db, { page: 1, pageSize: 100, exempt: 0 });
+  assert.strictEqual(noExempt.total, 2);
+  const byAmountAsc = listTransactions(db, { page: 1, pageSize: 100, sort: 'amount-asc' });
+  assert.strictEqual(byAmountAsc.items[0].amount, 500);
+  const byAmountDesc = listTransactions(db, { page: 1, pageSize: 100, sort: 'amount-desc' });
+  assert.strictEqual(byAmountDesc.items[0].amount, 100000);
+  const byDateAsc = listTransactions(db, { page: 1, pageSize: 100, sort: 'date-asc' });
+  assert.strictEqual(byDateAsc.items[0].date, '2026-07-01');
+  const combo = listTransactions(db, { page: 1, pageSize: 100, month: '2026-07', type: 'expense', exempt: 1, sort: 'amount-desc' });
+  assert.strictEqual(combo.total, 1);
+  assert.strictEqual(combo.items[0].note, 'b');
+  db.close();
+});

@@ -29,9 +29,28 @@ test('parseExcelRows 解析含豁免标记', () => {
   ]);
   const rows = parseExcelRows(file);
   assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].type, 'expense'); // 类型列优先：支出+正金额 ≠ 收入
   assert.strictEqual(rows[0].exempt, false);
+  assert.strictEqual(rows[1].type, 'expense'); // 豁免记录仍是支出
   assert.strictEqual(rows[1].exempt, true);
   assert.strictEqual(rows[2].type, 'income');
+});
+
+test('parseExcelRows 无类型列时按金额正负推断', () => {
+  const XLSX = require('xlsx');
+  const dir = tempDir();
+  const file = path.join(dir, 'in2.xlsx');
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['日期', '金额', '备注'],
+    ['2026-07-01', 100, '入账'],
+    ['2026-07-02', -50, '花销'],
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, file);
+  const rows = parseExcelRows(file);
+  assert.strictEqual(rows[0].type, 'income');  // 正 → 收入
+  assert.strictEqual(rows[1].type, 'expense'); // 负 → 支出
 });
 
 test('importRows 失败整体回滚', async () => {

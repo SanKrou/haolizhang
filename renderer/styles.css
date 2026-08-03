@@ -27,6 +27,12 @@ body {
   background: var(--bg); color: var(--text);
   display: grid; grid-template-rows: 42px 1fr; height: 100vh;
   overflow: hidden;
+  -webkit-user-select: none; user-select: none; /* 除数字外不可选中/复制 */
+}
+/* 放行：输入框可编辑复制，数字可选中复制 */
+input, textarea, select { -webkit-user-select: text; user-select: text; }
+.note-box, td.amt, .stat-num, .cal-day, .b-num {
+  -webkit-user-select: text; user-select: text;
 }
 
 /* ── 自绘标题栏（无边框 · 朱砂线式） ── */
@@ -231,25 +237,74 @@ select.ink-hidden { display: none !important; }
 .nav-btn:hover { background: rgba(90, 80, 60, 0.05); color: var(--text); }
 .nav-btn.active { background: rgba(90, 80, 60, 0.06); color: var(--text); border-left-color: #b3452f; }
 
-/* ── 结余卡：白纸 + 朱砂印章 ── */
-#balance-card {
-  margin-top: auto; position: relative;
-  background: var(--card); border: 1px solid #ddd2b8; border-radius: 2px;
-  box-shadow: none; padding: 13px 14px;
+/* ── 通栏悬浮结余条（竖式 | 诗句 | 日历） ── */
+#balance-dock {
+  position: fixed; left: 14px; right: 14px; bottom: 14px; z-index: 40;
+  background: #fdfbf5; border: 1px solid #ddd2b8; border-radius: 4px;
+  box-shadow: 0 12px 34px rgba(60, 50, 30, 0.22);
+  padding: 10px 18px; display: flex; align-items: center; gap: 20px;
+  max-width: none;
 }
-#balance-card .label { font-size: 12px; color: var(--text-muted); opacity: 0.85; }
-#balance-card .value {
-  font-size: 22px; font-family: var(--font-num); font-weight: 700; margin-top: 3px;
+/* 左：竖式结余 */
+#balance-dock .bb-left { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+#balance-dock .bb-range { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 2px; white-space: nowrap; }
+#balance-dock .bb-range b { color: #b3452f; font-weight: 700; font-family: var(--font-num); }
+#balance-dock .bd-row { display: flex; align-items: baseline; padding: 4px 0; white-space: nowrap; }
+#balance-dock .bd-row .cap { font-size: 12px; color: var(--muted); letter-spacing: 2px; min-width: 36px; margin-right: 18px; }
+#balance-dock .bd-row .cn {
+  font-family: var(--font-num); font-size: 16px; font-weight: 700; color: var(--text);
+  letter-spacing: 1px; margin-right: 12px;
 }
-#balance-card::after { /* 「结余」印章 */
-  content: "结余"; position: absolute; right: 9px; bottom: 8px; width: 38px; height: 38px;
-  background: #b3452f; color: #fdfbf5; font-family: var(--font-num); font-size: 13px;
-  display: flex; align-items: center; justify-content: center; border-radius: 2px;
-  opacity: 0.9; transform: rotate(-6deg);
+#balance-dock .bd-row .note-box {
+  font-size: 11px; color: var(--muted);
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px; padding: 0 2px;
+}
+#balance-dock .bd-row .note-box::before { content: "“"; color: #b3452f; font-size: 14px; margin-right: 4px; vertical-align: -1px; }
+#balance-dock .bd-row .note-box::after { content: "”"; color: #b3452f; font-size: 14px; margin-left: 4px; vertical-align: -1px; }
+#balance-dock .bd-rule { border-top: 2px solid var(--text); margin: 5px 0 3px; }
+#balance-dock .bd-row.total .cap { color: #b3452f; font-weight: 700; }
+#balance-dock .bd-row.total .cn { font-size: 17px; }
+
+/* 中：诗句（行书 · 居中铺平） */
+#balance-dock .bb-poem {
+  flex: 1; text-align: center; padding: 0 10px; cursor: pointer;
+  overflow: hidden; white-space: nowrap; min-width: 0;
+}
+#balance-dock .poem-line {
+  font-family: "STXingkai", "华文行楷", "STKaiti", serif;
+  font-size: 31px; letter-spacing: 6px; color: var(--text);
+  transition: opacity .4s ease; display: inline-block;
+}
+#balance-dock .poem-line.fade { opacity: 0; }
+#balance-dock .poem-src {
+  font-family: var(--font-num); font-size: 15px; color: #b3452f;
+  letter-spacing: 3px; margin-left: 16px;
 }
 
+/* 分隔竖线 */
+#balance-dock .bb-sep {
+  width: 1px; align-self: stretch; margin: 6px 0; flex-shrink: 0;
+  background: linear-gradient(180deg, transparent, #d8cfb8 20%, #d8cfb8 80%, transparent);
+}
+
+/* 右：日历（年/月输入 + 范围选取，复用全局 cal-* 类） */
+#balance-dock .bb-cal { margin-left: auto; display: flex; flex-direction: column; flex-shrink: 0; }
+#balance-dock .cal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+#balance-dock .cal-head input {
+  width: 52px; border: 1px solid #ddd2b8; background: #fdfbf5; color: var(--text);
+  font-family: var(--font-num); font-size: 13px; padding: 2px 4px;
+  text-align: center; border-radius: 2px; outline: none;
+}
+#balance-dock .cal-head input:focus { border-color: #b3452f; }
+#balance-dock .cal-head .y { width: 60px; }
+#balance-dock .cal-head .unit { font-size: 11px; color: var(--muted); }
+#balance-dock .cal-day.sel-start { background: #b3452f; color: #fdfbf5; border-radius: 2px; }
+#balance-dock .cal-day.sel-end { background: #8f2f24; color: #fdfbf5; border-radius: 2px; }
+#balance-dock .cal-day.in-range { background: rgba(179, 69, 47, 0.14); border-radius: 0; }
+
 /* ── 内容区：双栏铺陈（主栏 + 信息侧栏） ── */
-#view-root { padding: 22px 24px; overflow-y: auto; min-height: 0; }
+#view-root { padding: 22px 24px 270px; overflow-y: auto; min-height: 0; }
 #view-root::-webkit-scrollbar { width: 10px; }
 #view-root::-webkit-scrollbar-thumb { background: rgba(120, 100, 60, 0.25); border-radius: 5px; }
 
@@ -324,6 +379,26 @@ label { font-size: 13px; color: var(--text-muted); }
   display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 12px;
   background: var(--accent-soft); color: var(--text);
 }
+.tag-chip { cursor: pointer; }
+.tag-chip:hover { background: rgba(179, 69, 47, 0.14); }
+.muted { color: var(--text-muted); }
+
+/* ── 数字统一：楷体（金额可读性） ── */
+.b-num { font-family: var(--font-num); font-weight: 700; }
+
+/* ── 分类预算表格（规整三列：名称 | 进度 | 输入） ── */
+.b-table { width: 100%; border-collapse: collapse; }
+.b-table td { padding: 6px 0; border-bottom: 1px dotted #ddd2b8; vertical-align: middle; }
+.b-table tr:last-child td { border-bottom: none; }
+.b-table .t-name {
+  font-size: 13px; color: var(--text); white-space: nowrap;
+  padding-right: 10px; width: 1%;
+}
+.b-table .t-bar { padding-right: 10px; }
+.b-table .t-bar .progress { height: 5px; margin: 2px 0 3px; }
+.b-table .t-num { font-size: 12px; color: var(--text-muted); letter-spacing: 0.3px; }
+.b-table .t-input { width: 92px; }
+.b-table .t-input input { padding: 5px 8px; font-size: 12.5px; width: 100%; }
 
 /* ── 表格：细墨线 ── */
 #view-root table { border-collapse: collapse; }

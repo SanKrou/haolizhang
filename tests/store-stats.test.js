@@ -78,3 +78,29 @@ test('getExemptTransactions 返回当月豁免记录', async () => {
   assert.strictEqual(list[0].note, '手机');
   db.close();
 });
+
+test('区间统计：自定义起止日期聚合与逐日趋势', async () => {
+  const db = await tempDb();
+  const cat = createCategory(db, { name: '餐饮', type: 'expense' });
+  createTransaction(db, { type: 'income', amount: 100000, date: '2026-07-01',
+    categoryId: null, note: '', exempt: 0, exemptNote: '', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 3000, date: '2026-07-05',
+    categoryId: cat, note: '', exempt: 0, exemptNote: '', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 50000, date: '2026-07-10',
+    categoryId: cat, note: '电脑', exempt: 1, exemptNote: '大额', tagIds: [] });
+  createTransaction(db, { type: 'expense', amount: 4000, date: '2026-08-02',
+    categoryId: cat, note: '八月', exempt: 0, exemptNote: '', tagIds: [] });
+  const s = getStatistics(db, { period: 'range', dateStart: '2026-07-01', dateEnd: '2026-07-31' });
+  assert.strictEqual(s.income, 100000);
+  assert.strictEqual(s.expense, 3000);              // 常规支出不含豁免
+  assert.strictEqual(s.exemptExpense, 50000);       // 豁免单列
+  assert.strictEqual(s.balance, 100000 - 3000 - 50000); // 结余含豁免（同月口径）
+  assert.strictEqual(s.trend.length, 3);            // 逐日趋势 3 个点
+  assert.strictEqual(s.trend[0].label, '2026-07-01');
+  assert.strictEqual(s.trend[1].expense, 3000);    // 趋势不含豁免
+  assert.strictEqual(s.trend[2].expense, 0);        // 豁免日 expense 计 0（口径同月）
+  const full = getStatistics(db, { period: 'range', dateStart: '2026-07-01', dateEnd: '2026-08-31' });
+  assert.strictEqual(full.expense, 7000);           // 跨月 3000+4000
+  assert.strictEqual(full.trend.length, 4);
+  db.close();
+});

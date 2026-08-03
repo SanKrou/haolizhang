@@ -16,12 +16,15 @@ window.renderers.add = async function (root) {
               <div class="field" style="min-width:170px"><label>日期</label><input id="f-date" type="date" /></div>
             </div>
             <div class="row">
-              <div class="field flex1"><label>分类</label><select id="f-category" style="width:100%"></select></div>
               <div class="field flex1">
-                <label>标签</label>
+                <label>分类（输入或选择现有）</label>
+                <input id="f-category" placeholder="输入新分类，或点选现有" autocomplete="off" />
+              </div>
+              <div class="field flex1">
+                <label>标签（输入后回车添加）</label>
                 <div class="row">
                   <div id="f-tags"></div>
-                  <input id="f-newtag" class="flex1" placeholder="新标签回车添加" />
+                  <input id="f-newtag" class="flex1" placeholder="如：午餐 / 通勤" autocomplete="off" />
                 </div>
               </div>
             </div>
@@ -36,54 +39,127 @@ window.renderers.add = async function (root) {
         </div>
       </div>
       <div class="col-side">
-        <details class="card" id="manage-box">
-          <summary>分类与标签管理</summary>
-          <div id="manage-content"></div>
-        </details>
+        <div class="card">
+          <h3>填写提示</h3>
+          <p class="muted" style="font-size:12px;line-height:1.9">
+            分类 / 标签输入时自动匹配现有项，点选即可；<br>
+            输入不存在的名称，保存这笔记录时会自动建档；<br>
+            删除或改名请到「账本」页右下角的分类与标签管理。
+          </p>
+        </div>
       </div>
     </div>`;
 
   let type = 'expense';
-  const catSel = root.querySelector('#f-category');
+  const catInput = root.querySelector('#f-category');
+  const tagInput = root.querySelector('#f-newtag');
   const tagBox = root.querySelector('#f-tags');
   const errBox = root.querySelector('#f-errors');
   root.querySelector('#f-date').value = window.localDateStr();
 
+  /* ── 分类：输入匹配 + 自动建档 ── */
+  let catCache = [];     // [{id, name}] 当前 type
+  let selCatId = null;   // 选中现有分类的 id（null = 新分类）
+  let catPanel = null;
+  function closeCatPanel() { if (catPanel) { catPanel.remove(); catPanel = null; } }
+  function showCatPanel() {
+    closeCatPanel();
+    const kw = catInput.value.trim();
+    const list = catCache.filter(c => !kw || c.name.includes(kw)).slice(0, 8);
+    if (!list.length) return;
+    catPanel = document.createElement('div');
+    catPanel.className = 'ink-panel';
+    catPanel.innerHTML = list.map(c =>
+      `<button type="button" class="ink-opt" data-id="${c.id}">${window.escapeHtml(c.name)}</button>`).join('');
+    document.body.appendChild(catPanel);
+    const rect = catInput.getBoundingClientRect();
+    let left = rect.left, top = rect.bottom + 6;
+    if (left + catPanel.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - catPanel.offsetWidth - 8);
+    if (top + catPanel.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - catPanel.offsetHeight - 6);
+    catPanel.style.left = left + 'px';
+    catPanel.style.top = top + 'px';
+    catPanel.querySelectorAll('.ink-opt').forEach(b => b.onclick = (e) => {
+      e.stopPropagation();
+      const c = catCache.find(x => String(x.id) === b.dataset.id);
+      if (c) { catInput.value = c.name; selCatId = c.id; }
+      closeCatPanel();
+    });
+  }
+  catInput.addEventListener('focus', showCatPanel);
+  catInput.addEventListener('input', () => { selCatId = null; showCatPanel(); });
+  catInput.addEventListener('blur', () => setTimeout(closeCatPanel, 150));
+
+  /* ── 标签：待保存文本集，保存时自动建档 ── */
+  const pendingTags = new Set(); // 文本集合
+  let tagCache = [];             // [{id, name}]
+  let tagPanel = null;
+  function closeTagPanel() { if (tagPanel) { tagPanel.remove(); tagPanel = null; } }
+  function renderTags() {
+    tagBox.innerHTML = [...pendingTags].map(t =>
+      `<button type="button" class="badge tag-chip" data-t="${window.escapeHtml(t)}">${window.escapeHtml(t)} ×</button>`).join('');
+    tagBox.querySelectorAll('.tag-chip').forEach(b => b.onclick = () => {
+      pendingTags.delete(b.dataset.t);
+      renderTags();
+    });
+  }
+  function showTagPanel() {
+    closeTagPanel();
+    const kw = tagInput.value.trim();
+    const list = tagCache.filter(t => !pendingTags.has(t.name) && (!kw || t.name.includes(kw))).slice(0, 8);
+    if (!list.length) return;
+    tagPanel = document.createElement('div');
+    tagPanel.className = 'ink-panel';
+    tagPanel.innerHTML = list.map(t =>
+      `<button type="button" class="ink-opt">${window.escapeHtml(t.name)}</button>`).join('');
+    document.body.appendChild(tagPanel);
+    const rect = tagInput.getBoundingClientRect();
+    let left = rect.left, top = rect.bottom + 6;
+    if (left + tagPanel.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - tagPanel.offsetWidth - 8);
+    if (top + tagPanel.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - tagPanel.offsetHeight - 6);
+    tagPanel.style.left = left + 'px';
+    tagPanel.style.top = top + 'px';
+    tagPanel.querySelectorAll('.ink-opt').forEach(b => b.onclick = (e) => {
+      e.stopPropagation();
+      pendingTags.add(b.textContent.trim());
+      tagInput.value = '';
+      renderTags();
+      closeTagPanel();
+    });
+  }
+  tagInput.addEventListener('focus', showTagPanel);
+  tagInput.addEventListener('input', showTagPanel);
+  tagInput.addEventListener('blur', () => setTimeout(closeTagPanel, 150));
+  tagInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const v = tagInput.value.trim();
+    if (!v) return;
+    pendingTags.add(v);
+    tagInput.value = '';
+    renderTags();
+    closeTagPanel();
+  });
+
+  /* ── 数据加载与类型切换 ── */
   async function loadCats() {
     const r = await window.ledger.listCategories(type);
-    catSel.innerHTML = '<option value="">（未分类）</option>' +
-      (r.ok ? r.data.map(c => `<option value="${c.id}">${window.escapeHtml(c.name)}</option>`).join('') : '');
+    catCache = r.ok ? r.data : [];
+  }
+  async function loadTags() {
+    const r = await window.ledger.listTags();
+    tagCache = r.ok ? r.data : [];
   }
   const toggleType = (t) => {
+    if (t === type) return;
     type = t;
     root.querySelector('#type-expense').className = t === 'expense' ? 'btn' : 'btn ghost';
     root.querySelector('#type-income').className = t === 'income' ? 'btn' : 'btn ghost';
+    catInput.value = ''; selCatId = null;
     loadCats();
   };
   root.querySelector('#type-expense').onclick = () => toggleType('expense');
   root.querySelector('#type-income').onclick = () => toggleType('income');
 
-  const tags = new Set();
-  async function loadTags() {
-    const r = await window.ledger.listTags();
-    if (!r.ok) return;
-    tagBox.innerHTML = r.data.map(t =>
-      `<button type="button" class="badge" data-tag="${t.id}">${window.escapeHtml(t.name)}</button>`).join('');
-    tagBox.querySelectorAll('[data-tag]').forEach(b => {
-      b.onclick = () => {
-        const id = Number(b.dataset.tag);
-        if (tags.has(id)) { tags.delete(id); b.style.opacity = '0.5'; }
-        else { tags.add(id); b.style.opacity = '1'; }
-      };
-      b.style.opacity = tags.has(Number(b.dataset.tag)) ? '1' : '0.5';
-    });
-  }
-  root.querySelector('#f-newtag').addEventListener('keydown', async (e) => {
-    if (e.key !== 'Enter' || !e.target.value.trim()) return;
-    const r = await window.ledger.createTag(e.target.value.trim());
-    if (r.ok) { e.target.value = ''; loadTags(); }
-  });
-
+  /* ── 保存：分类/标签不存在则自动建档 ── */
   root.querySelector('#f-save').onclick = async () => {
     errBox.textContent = '';
     const amount = Math.round(parseFloat(root.querySelector('#f-amount').value) * 100);
@@ -94,92 +170,44 @@ window.renderers.add = async function (root) {
     if (exempt && !root.querySelector('#f-exemptnote').value.trim()) {
       errBox.textContent = '豁免需填写原因'; return;
     }
+    // 分类：选中 id → 同名现有 → 自动创建
+    let categoryId = null;
+    const catName = catInput.value.trim();
+    if (selCatId) categoryId = selCatId;
+    else if (catName) {
+      const hit = catCache.find(c => c.name === catName);
+      if (hit) categoryId = hit.id;
+      else {
+        const cr = await window.ledger.createCategory({ name: catName, type });
+        if (!cr.ok) { errBox.textContent = '分类创建失败：' + cr.error; return; }
+        categoryId = cr.data.id;
+        loadCats();
+      }
+    }
+    // 标签：逐个自动创建（createTag 自带查重）
+    const tagIds = [];
+    for (const t of pendingTags) {
+      const tr = await window.ledger.createTag(t);
+      if (tr.ok) tagIds.push(tr.data.id);
+    }
     const r = await window.ledger.createTransaction({
       type, amount, date,
-      categoryId: catSel.value ? Number(catSel.value) : null,
+      categoryId,
       note: root.querySelector('#f-note').value.trim(),
       exempt, exemptNote: root.querySelector('#f-exemptnote').value.trim(),
-      tagIds: [...tags],
+      tagIds,
     });
     if (!r.ok) { errBox.textContent = r.error; return; }
+    // 清空表单
     root.querySelector('#f-amount').value = '';
     root.querySelector('#f-note').value = '';
     root.querySelector('#f-exempt').checked = false;
     root.querySelector('#f-exemptnote').value = '';
-    tags.clear(); loadTags();
-    const s = await window.ledger.getStatistics({ period: 'month', date });
-    if (s.ok) {
-      document.getElementById('balance-value').textContent =
-        (s.data.balance / 100).toFixed(2) + ' 元';
-    }
+    catInput.value = ''; selCatId = null;
+    pendingTags.clear(); renderTags();
+    Promise.all([loadCats(), loadTags()]);
+    if (window.refreshBalance) window.refreshBalance();
   };
 
-  // ── 分类/标签管理（原「管理」页并入） ──
-  async function renderManage() {
-    const content = root.querySelector('#manage-content');
-    const [catsR, tagsR] = await Promise.all([
-      window.ledger.listCategories(), window.ledger.listTags()]);
-    const cats = catsR.ok ? catsR.data : [];
-    const tags = tagsR.ok ? tagsR.data : [];
-    const group = (type, label) => `
-      <h3>${label}</h3>
-      <div id="m-${type}">
-        ${cats.filter(c => c.type === type).map(c => `
-          <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
-            <input class="m-cat-name" data-id="${c.id}" value="${window.escapeHtml(c.name)}" />
-            <button class="btn ghost m-cat-save" data-id="${c.id}">改名</button>
-            <button class="btn danger m-cat-del" data-id="${c.id}">删除</button>
-          </div>`).join('')}
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <input id="m-new-${type}" placeholder="新${label}" />
-          <button class="btn m-cat-add" data-type="${type}">添加</button>
-        </div>
-      </div>`;
-    content.innerHTML = `
-      ${group('expense', '支出分类')}
-      ${group('income', '收入分类')}
-      <h3 style="margin-top:16px">标签</h3>
-      <div id="m-tags">
-        ${tags.map(t => `
-          <span class="badge" style="margin:4px">${window.escapeHtml(t.name)}
-            <button class="m-tag-del" data-id="${t.id}" style="border:none;background:none;cursor:pointer;color:inherit">×</button>
-          </span>`).join('')}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <input id="m-new-tag" placeholder="新标签" />
-        <button class="btn m-tag-add">添加</button>
-      </div>`;
-    content.querySelectorAll('.m-cat-add').forEach(b =>
-      b.onclick = async () => {
-        const inp = content.querySelector(`#m-new-${b.dataset.type}`);
-        if (!inp.value.trim()) return;
-        await window.ledger.createCategory({ name: inp.value.trim(), type: b.dataset.type });
-        loadCats(); renderManage();
-      });
-    content.querySelectorAll('.m-cat-save').forEach(b =>
-      b.onclick = async () => {
-        const inp = content.querySelector(`.m-cat-name[data-id="${b.dataset.id}"]`);
-        const cat = cats.find(c => String(c.id) === b.dataset.id);
-        await window.ledger.updateCategory(Number(b.dataset.id),
-          { name: inp.value.trim(), type: cat.type, sort_order: cat.sort_order });
-        loadCats(); renderManage();
-      });
-    content.querySelectorAll('.m-cat-del').forEach(b =>
-      b.onclick = async () => {
-        const r = await window.ledger.deleteCategory(Number(b.dataset.id));
-        if (!r.ok) { window.ui.alert(r.error); return; }
-        loadCats(); renderManage();
-      });
-    content.querySelector('.m-tag-add').onclick = async () => {
-      const inp = content.querySelector('#m-new-tag');
-      if (!inp.value.trim()) return;
-      await window.ledger.createTag(inp.value.trim());
-      loadTags(); renderManage();
-    };
-    content.querySelectorAll('.m-tag-del').forEach(b =>
-      b.onclick = async () => { await window.ledger.deleteTag(Number(b.dataset.id)); loadTags(); renderManage(); });
-  }
-
   await Promise.all([loadCats(), loadTags()]);
-  await renderManage();
 };
