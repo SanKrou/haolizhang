@@ -2,31 +2,49 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>记账应用</title>
+  <title>毫厘账</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <aside id="sidebar">
-    <div class="brand">💰 记账</div>
-    <button class="nav-btn active" data-view="add">记一笔</button>
-    <button class="nav-btn" data-view="ledger">账本</button>
-    <button class="nav-btn" data-view="stats">统计</button>
-    <button class="nav-btn" data-view="budget">预算</button>
-    <button class="nav-btn" data-view="io">导入导出</button>
-    <button class="nav-btn" data-view="manage">管理</button>
-    <div id="balance-card">
-      <div class="label">本月结余</div>
-      <div class="value" id="balance-value">--</div>
+  <header id="titlebar">
+    <div class="tb-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22">
+        <circle cx="12" cy="12" r="10.5" fill="#33302a"/>
+        <rect x="8" y="8" width="8" height="8" fill="#f8f5ee"/>
+        <rect x="10.7" y="10.7" width="2.6" height="2.6" fill="#b3452f"/>
+      </svg>
     </div>
-  </aside>
-  <main id="view-root"></main>
+    <span class="tb-brand">毫厘账</span>
+    <span class="tb-page" id="tb-page">记一笔</span>
+    <div class="tb-btns">
+      <button class="tb-btn" id="tb-min" data-tip="最小化" aria-label="最小化">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><line x1="1.5" y1="6" x2="10.5" y2="6"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-max" data-tip="最大化" aria-label="最大化">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.8" y="1.8" width="8.4" height="8.4" rx="0.5"/></svg>
+      </button>
+      <button class="tb-btn close" id="tb-close" data-tip="关闭" aria-label="关闭">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>
+      </button>
+    </div>
+  </header>
+  <div id="app-area">
+    <aside id="sidebar">
+      <button class="nav-btn active" data-view="add">记一笔</button>
+      <button class="nav-btn" data-view="ledger">账本</button>
+      <button class="nav-btn" data-view="stats">统计</button>
+      <div id="balance-card">
+        <div class="label">本月结余</div>
+        <div class="value" id="balance-value">--</div>
+      </div>
+    </aside>
+    <main id="view-root"></main>
+  </div>
   <script src="../node_modules/echarts/dist/echarts.min.js"></script>
   <script src="pages/add.js"></script>
   <script src="pages/ledger.js"></script>
   <script src="pages/stats.js"></script>
-  <script src="pages/budget.js"></script>
-  <script src="pages/io.js"></script>
-  <script src="pages/manage.js"></script>
+  <script src="ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

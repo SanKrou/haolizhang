@@ -11,7 +11,8 @@ window.localDateStr = localDateStr;
 
 window.escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const views = ['add', 'ledger', 'stats', 'budget', 'io', 'manage'];
+const views = ['add', 'ledger', 'stats'];
+const PAGE_NAMES = { add: '记一笔', ledger: '账本', stats: '统计' };
 let currentView = 'add';
 
 function renderView(name) {
@@ -25,8 +26,14 @@ function renderView(name) {
   document.querySelectorAll('.nav-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.view === name));
   currentView = name;
+  document.getElementById('tb-page').textContent = PAGE_NAMES[name] || name;
   document.dispatchEvent(new CustomEvent('view:change', { detail: name }));
 }
+
+// 自绘标题栏窗口控制
+document.getElementById('tb-min').addEventListener('click', () => window.winctl.minimize());
+document.getElementById('tb-max').addEventListener('click', () => window.winctl.maximize());
+document.getElementById('tb-close').addEventListener('click', () => window.winctl.close());
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => renderView(btn.dataset.view));
